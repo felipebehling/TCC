@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Security Academy | TCC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0B0F19',
+                            panel: '#151C2C',
+                            border: '#232E45',
+                            cyan: '#00F0FF',
+                            purple: '#8A2BE2',
+                            amber: '#F59E0B',
+                            emerald: '#10B981',
+                        }
+                    },
+                    boxShadow: {
+                        'neon': '0 0 15px rgba(0, 240, 255, 0.3)',
+                        'neon-purple': '0 0 15px rgba(138, 43, 226, 0.3)',
+                        'neon-amber': '0 0 15px rgba(245, 158, 11, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="flex h-screen overflow-hidden bg-brand-dark text-gray-200">
+    <div id="reading-progress"></div>
+
+    <div id="overlay" class="fixed inset-0 z-20 hidden bg-black/50 backdrop-blur-sm lg:hidden"></div>
+    <aside id="sidebar" class="glass fixed inset-y-0 left-0 z-30 w-72 -translate-x-full transition-transform duration-300 lg:static lg:translate-x-0">
+        </aside>
+
+    <main class="flex-1 overflow-y-auto">
+        </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
