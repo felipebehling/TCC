@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Security Academy | TCC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0B0F19',    // Deep background
+                            panel: '#151C2C',   // Cards and panels
+                            border: '#232E45',  // Borders
+                            cyan: '#00F0FF',    // Neon primary
+                            purple: '#8A2BE2',  // Accent
+                            amber: '#F59E0B',   // Warning/Tips
+                            emerald: '#10B981', // Success
+                        }
+                    },
+                    boxShadow: {
+                        'neon': '0 0 15px rgba(0, 240, 255, 0.3)',
+                        'neon-purple': '0 0 15px rgba(138, 43, 226, 0.3)',
+                        'neon-amber': '0 0 15px rgba(245, 158, 11, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { 
+            background-color: #0B0F19; 
+            color: #E2E8F0;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0B0F19; }
+        ::-webkit-scrollbar-thumb { background: #232E45; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F0FF; }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(21, 28, 44, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(35, 46, 69, 0.8);
+        }
+
+        /* Module active state */
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(0, 240, 255, 0.1) 0%, transparent 100%);
+            border-left: 3px solid #00F0FF;
+            color: #ffffff;
+        }
+
+        /* Glow Text */
+        .text-glow { text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+        .text-glow-amber { text-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+
+        /* Hide all sections initially except the first */
+        .module-content { display: none; }
+        .module-content.active { display: block; }
+
+        /* Reading Progress Bar */
+        #reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: #00F0FF;
+            box-shadow: 0 0 10px #00F0FF;
+            z-index: 100;
+            transition: width 0.1s ease;
+            width: 0%;
+        }
+
+        /* Data Tables Styling */
+        .modern-table { width: 100%; border-collapse: collapse; }
+        .modern-table th { background: rgba(35, 46, 69, 0.5); color: #94A3B8; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; padding: 1rem; text-align: left; border-bottom: 1px solid #232E45; }
+        .modern-table td { padding: 1rem; border-bottom: 1px solid #232E45; color: #CBD5E1; font-size: 0.875rem; vertical-align: top; }
+        .modern-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+        .modern-table td:first-child { font-weight: 600; color: #F8FAFC; }
+
+        /* Callouts */
+        .callout { display: flex; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border-left-width: 4px; background: rgba(35, 46, 69, 0.3); margin: 1.5rem 0; }
+        .callout-cyan { border-color: #00F0FF; background: rgba(0, 240, 255, 0.05); }
+        .callout-amber { border-color: #F59E0B; background: rgba(245, 158, 11, 0.05); }
+        .callout-emerald { border-color: #10B981; background: rgba(16, 185, 129, 0.05); }
+    </style>
+</head>
+<body class="flex h-screen antialiased selection:bg-brand-cyan selection:text-brand-dark">
+
+    <div id="reading-progress"></div>
+
+    <!-- Mobile Header & Menu Toggle -->
+    <div class="lg:hidden fixed top-0 w-full z-50 glass px-4 py-3 flex justify-between items-center border-b border-brand-border">
+        <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-shield-halved text-brand-cyan text-xl"></i>
+            <span class="font-bold text-white">ESP32 Academy</span>
+        </div>
+        <button id="mobile-toggle" class="text-gray-300 hover:text-white">
+            <i class="fa-solid fa-bars text-2xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar / LMS Menu -->
+    <aside id="sidebar" class="fixed lg:relative z-40 w-72 h-full glass flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
+        <!-- Brand -->
+        <div class="p-6 hidden lg:flex items-center space-x-3 cursor-pointer" onclick="navModule('dashboard')">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-cyan to-blue-600 flex items-center justify-center shadow-neon">
+                <i class="fa-solid fa-microchip text-brand-dark text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-extrabold text-white tracking-tight">ESP32 <span class="text-brand-cyan text-glow">Academy</span></h1>
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest font-mono mt-0.5">TCC Development Hub</p>
+            </div>
+        </div>
+
+        <!-- User Progress Widget -->
+        <div class="px-6 py-4 border-t border-b border-brand-border/50 bg-brand-dark/30 mt-16 lg:mt-0">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-semibold text-gray-400 uppercase">Jornada 18 Meses</span>
+                <span class="text-xs font-bold text-brand-cyan">7 Módulos</span>
+            </div>
+            <div class="w-full bg-brand-border rounded-full h-1.5">
+                <div class="bg-gradient-to-r from-blue-500 to-brand-cyan h-1.5 rounded-full" style="width: 15%"></div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto py-4 custom-scrollbar">
+            <div class="px-4 mb-2">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-2">Trilha de Aprendizado</span>
+            </div>
+            <ul class="space-y-1">
+                <li>
+                    <button onclick="navModule('dashboard')" class="nav-item active w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-chart-pie w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">Dashboard</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('roadmap')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-route w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">1. Roadmap Geral</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('fundamentos')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-layer-group w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">2. Fundações Teóricas</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('hardware')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-memory w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">3. Hardware & Compras</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('ambiente')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-laptop-code w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">4. Setup Profissional</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('pratica')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-terminal w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">5. Projetos Práticos</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('gestao')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-book-journal-whills w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">6. Docs & Gestão</span>
+                    </button>
+                </li>
+                <li>
+                    <button onclick="navModule('recursos')" class="nav-item w-full flex items-center px-6 py-3 text-gray-400 hover:text-white transition-colors group border-l-[3px] border-transparent">
+                        <i class="fa-solid fa-layer-group w-6 text-center text-gray-500 group-hover:text-brand-cyan transition-colors"></i>
+                        <span class="font-medium text-sm ml-3">7. Biblioteca (Recursos)</span>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="p-4 border-t border-brand-border text-center bg-brand-dark/50">
+            <div class="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                <i class="fa-solid fa-code"></i>
+                <span>Engenharia de TCC</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Overlay mobile -->
+    <div id="overlay" class="fixed inset-0 bg-black/80 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+
+    <!-- Main Content -->
+    <main id="main-scroll" class="flex-1 overflow-y-auto relative pt-16 lg:pt-0">
+        
+        <!-- Topbar Decoration -->
+        <div class="hidden lg:flex justify-end items-center h-16 border-b border-brand-border px-8 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-30">
+            <div class="flex items-center space-x-4">
+                <div class="text-xs text-gray-400 font-mono"><i class="fa-solid fa-shield-halved mr-1 text-brand-cyan"></i> InfoSec & IIoT</div>
+            </div>
+        </div>
+
+        <div class="max-w-5xl mx-auto px-4 sm:px-8 py-10 pb-32">
+
+            <!-- MODULE 0: Dashboard -->
+            <section id="dashboard" class="module-content active">
+                <div class="fade-in">
+                    <!-- Hero Banner -->
+                    <div class="relative rounded-3xl overflow-hidden bg-gradient-to-r from-brand-panel to-brand-border border border-brand-border shadow-2xl mb-10">
+                        <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiLz48L3N2Zz4=')]"></div>
+                        <div class="relative p-8 md:p-12 z-10 flex flex-col md:flex-row md:items-center justify-between">
+                            <div class="max-w-2xl">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full bg-brand-cyan/10 text-brand-cyan text-xs font-bold border border-brand-cyan/20 mb-4 uppercase tracking-wider">
+                                    <i class="fa-solid fa-rocket mr-2"></i> Missão Iniciada
+                                </span>
+                                <h2 class="text-4xl md:text-5xl font-extrabold text-white mb-4 leading-tight">Seu TCC <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-cyan to-blue-500">Sem Respostas Prontas</span></h2>
+                                <p class="text-gray-400 text-lg mb-8 leading-relaxed">Um guia progressivo de 18 meses para desenvolver seu projeto com ESP32 do zero até a defesa — aprendendo a pensar como engenheiro, não apenas copiar código.</p>
+                                <div class="flex flex-wrap gap-4">
+                                    <button onclick="navModule('roadmap')" class="bg-brand-cyan text-brand-dark px-8 py-3 rounded-lg font-bold shadow-neon hover:bg-cyan-300 transition-all flex items-center group">
+                                        Ver Roadmap Completo
+                                        <i class="fa-solid fa-arrow-right ml-3 group-hover:translate-x-1 transition-transform"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="hidden lg:block">
+                                <i class="fa-solid fa-graduation-cap text-9xl text-white/5 drop-shadow-[0_0_50px_rgba(0,240,255,0.1)]"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Philosophy Callout -->
+                    <div class="callout callout-cyan mb-10">
+                        <i class="fa-solid fa-lightbulb text-2xl text-brand-cyan"></i>
+                        <div class="callout-body">
+                            <strong class="text-white font-bold block text-lg mb-1">A filosofia deste guia</strong>
+                            <p class="text-gray-400 text-sm leading-relaxed">Nenhuma resposta pronta aqui. Cada seção te dá as ferramentas, o contexto e a direção — mas o trabalho é seu. Seu TCC vai exigir que você saiba explicar cada decisão que tomou. Se você copiou sem entender, vai travar na banca.</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                        <div class="bg-brand-panel border border-brand-border rounded-xl p-5 hover:border-brand-cyan/50 transition-colors">
+                            <div class="font-mono text-3xl font-bold text-brand-cyan mb-1">18</div>
+                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Meses de Projeto</div>
+                        </div>
+                        <div class="bg-brand-panel border border-brand-border rounded-xl p-5 hover:border-brand-purple/50 transition-colors">
+                            <div class="font-mono text-3xl font-bold text-brand-purple mb-1">07</div>
+                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Módulos Técnicos</div>
+                        </div>
+                        <div class="bg-brand-panel border border-brand-border rounded-xl p-5 hover:border-emerald-500/50 transition-colors">
+                            <div class="font-mono text-3xl font-bold text-emerald-500 mb-1">60+</div>
+                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Recursos Curados</div>
+                        </div>
+                        <div class="bg-brand-panel border border-brand-border rounded-xl p-5 hover:border-amber-500/50 transition-colors">
+                            <div class="font-mono text-3xl font-bold text-brand-amber mb-1">∞</div>
+                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Evolução Contínua</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODULE 1: Roadmap -->
+            <section id="roadmap" class="module-content">
+                <div class="fade-in">
+                    <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 01 · VISÃO GERAL</span>
+                        <h2 class="text-3xl font-extrabold text-white">Roadmap — 18 Meses</h2>
+                        <p class="text-gray-400 mt-2">Uma jornada dividida em 5 fases progressivas. Cada fase constrói sobre a anterior. Não pule etapas.</p>
+                    </div>
+
+                    <!-- Custom Timeline Design (5 Phases) -->
+                    <div class="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-brand-cyan before:via-brand-purple before:to-emerald-500">
+                        
+                        <!-- Fase 0 -->
+                        <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-brand-dark bg-brand-cyan shadow-neon text-brand-dark font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">0</div>
+                            <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-brand-panel p-6 rounded-2xl border border-brand-border hover:border-brand-cyan/50 transition-colors">
+                                <div class="text-brand-cyan font-mono text-xs mb-1">MÊS 1–2 · FASE 0</div>
+                                <h3 class="text-xl font-bold text-white mb-2">Fundação — "Entender o Terreno"</h3>
+                                <p class="text-sm text-gray-400 mb-4">Eletrônica básica, introdução ao C/C++, como funciona um microcontrolador. Configure seu ambiente de desenvolvimento. Faça o LED piscar e entenda *por que* ele pisca.</p>
+                                <span class="inline-block bg-brand-cyan/10 text-brand-cyan text-[10px] px-2 py-1 rounded font-bold uppercase border border-brand-cyan/20">Iniciante</span>
+                            </div>
+                        </div>
+
+                        <!-- Fase 1 -->
+                        <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-brand-dark bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] text-brand-dark font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">1</div>
+                            <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-brand-panel p-6 rounded-2xl border border-brand-border hover:border-blue-500/50 transition-colors">
+                                <div class="text-blue-400 font-mono text-xs mb-1">MÊS 3–5 · FASE 1</div>
+                                <h3 class="text-xl font-bold text-white mb-2">Exploração — "Aprender Fazendo"</h3>
+                                <p class="text-sm text-gray-400 mb-4">Mini-projetos com ESP32: GPIO, PWM, sensores, I²C/SPI, Wi-Fi básico, MQTT. Documente tudo em um diário técnico. Defina a proposta formal com seu orientador.</p>
+                                <span class="inline-block bg-blue-500/10 text-blue-400 text-[10px] px-2 py-1 rounded font-bold uppercase border border-blue-500/20">Intermediário</span>
+                            </div>
+                        </div>
+
+                        <!-- Fase 2 -->
+                        <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-brand-dark bg-brand-purple shadow-neon-purple text-white font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">2</div>
+                            <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-brand-panel p-6 rounded-2xl border border-brand-border hover:border-brand-purple/50 transition-colors">
+                                <div class="text-brand-purple font-mono text-xs mb-1">MÊS 6–9 · FASE 2</div>
+                                <h3 class="text-xl font-bold text-white mb-2">Construção — "Protótipo Funcional"</h3>
+                                <p class="text-sm text-gray-400 mb-4">Núcleo do projeto: Broker Mosquitto em Docker, FreeRTOS, armazenamento de dados. O sistema deve funcionar em seu "estado base" (vulnerável).</p>
+                                <span class="inline-block bg-brand-purple/10 text-brand-purple text-[10px] px-2 py-1 rounded font-bold uppercase border border-brand-purple/20">Intermediário</span>
+                            </div>
+                        </div>
+
+                        <!-- Fase 3 -->
+                        <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-brand-dark bg-brand-amber shadow-neon-amber text-brand-dark font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">3</div>
+                            <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-brand-panel p-6 rounded-2xl border border-brand-border hover:border-brand-amber/50 transition-colors">
+                                <div class="text-brand-amber font-mono text-xs mb-1">MÊS 10–13 · FASE 3</div>
+                                <h3 class="text-xl font-bold text-white mb-2">Ataque & Defesa — "Refinamento"</h3>
+                                <p class="text-sm text-gray-400 mb-4">Executar ataques (MitM/Sniffing) na sua própria rede. Depois, implementar defesas reais (TLS 1.3, Snort IDS) e coletar métricas de latência. Escrever capítulos 1-3.</p>
+                                <span class="inline-block bg-brand-amber/10 text-brand-amber text-[10px] px-2 py-1 rounded font-bold uppercase border border-brand-amber/20">Avançado</span>
+                            </div>
+                        </div>
+
+                        <!-- Fase 4/5 -->
+                        <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-brand-dark bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] text-brand-dark font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10"><i class="fa-solid fa-flag-checkered"></i></div>
+                            <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-brand-panel p-6 rounded-2xl border border-brand-border hover:border-emerald-500/50 transition-colors">
+                                <div class="text-emerald-500 font-mono text-xs mb-1">MÊS 14–18 · FASES 4 & 5</div>
+                                <h3 class="text-xl font-bold text-white mb-2">Doc & Defesa — "A Entrega"</h3>
+                                <p class="text-sm text-gray-400 mb-4">Finalização do LaTeX. Discussão dos resultados. Revisão com orientador. Montagem da Demo física. Treino dos slides para a banca final.</p>
+                                <span class="inline-block bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-1 rounded font-bold uppercase border border-emerald-500/20">Finalização</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Next Step Bar -->
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">Fundações Teóricas (O que aprender primeiro)</p>
+                        </div>
+                        <button onclick="navModule('fundamentos')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 2 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODULE 2: Fundamentos -->
+            <section id="fundamentos" class="module-content">
+                <div class="fade-in">
+                    <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 02 · FUNDAÇÕES TEÓRICAS</span>
+                        <h2 class="text-3xl font-extrabold text-white">O Terreno da Engenharia</h2>
+                        <p class="text-gray-400 mt-2">Eletrônica, C/C++ e Redes formam a base. Não ignore isso ou pagará com semanas de debug cego.</p>
+                    </div>
+
+                    <!-- Course Cards Grid -->
+                    <div class="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mb-10">
+                        
+                        <!-- Course 1 -->
+                        <div class="group bg-brand-panel rounded-2xl border border-brand-border overflow-hidden hover:border-brand-amber transition-colors flex flex-col">
+                            <div class="p-6 relative flex-grow">
+                                <div class="w-12 h-12 rounded-lg bg-brand-amber/10 border border-brand-amber/20 flex items-center justify-center text-brand-amber text-xl mb-4"><i class="fa-solid fa-bolt"></i></div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-lg font-bold text-white">Eletrônica Básica</h3>
+                                </div>
+                                <p class="text-xs text-gray-400 mb-6 leading-relaxed">Aprenda a ler um datasheet, entenda Lei de Ohm (V=RxI), diferença entre 3.3V e 5V, pull-up/pull-down e GND comum.</p>
+                                <div class="space-y-2 mt-auto">
+                                    <a href="https://www.youtube.com/watch?v=mc979OhitAg" target="_blank" class="flex items-center justify-between p-2 rounded bg-brand-dark border border-brand-border hover:border-gray-500 transition text-sm">
+                                        <span class="text-gray-300"><i class="fa-brands fa-youtube text-red-500 w-5"></i> Crash Course (SparkFun)</span>
+                                        <i class="fa-solid fa-external-link text-gray-600 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Course 2 -->
+                        <div class="group bg-brand-panel rounded-2xl border border-brand-border overflow-hidden hover:border-blue-500 transition-colors flex flex-col">
+                            <div class="p-6 relative flex-grow">
+                                <div class="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 text-xl mb-4"><i class="fa-solid fa-c"></i></div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-lg font-bold text-white">C/C++ Moderno</h3>
+                                </div>
+                                <p class="text-xs text-gray-400 mb-6 leading-relaxed">Não há Garbage Collector no ESP32. Domine <code>uint8_t</code>, ponteiros, gestão de memória dinâmica e <code>structs</code>.</p>
+                                <div class="space-y-2 mt-auto">
+                                    <a href="https://www.learncpp.com/" target="_blank" class="flex items-center justify-between p-2 rounded bg-brand-dark border border-brand-border hover:border-gray-500 transition text-sm">
+                                        <span class="text-gray-300"><i class="fa-solid fa-book-open text-blue-400 w-5"></i> LearnCPP.com</span>
+                                        <i class="fa-solid fa-external-link text-gray-600 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Course 3 -->
+                        <div class="group bg-brand-panel rounded-2xl border border-brand-border overflow-hidden hover:border-emerald-500 transition-colors flex flex-col">
+                            <div class="p-6 relative flex-grow">
+                                <div class="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 text-xl mb-4"><i class="fa-solid fa-network-wired"></i></div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-lg font-bold text-white">Redes TCP/IP & Protocolos</h3>
+                                </div>
+                                <p class="text-xs text-gray-400 mb-6 leading-relaxed">Modelo OSI, diferença TCP/UDP, endereçamento IP/MAC e o modelo Pub/Sub do protocolo MQTT.</p>
+                                <div class="space-y-2 mt-auto">
+                                    <a href="https://www.youtube.com/playlist?list=PLDQaRcbiSnqF5U8ffMgZzS7fq1rHUI3Q8" target="_blank" class="flex items-center justify-between p-2 rounded bg-brand-dark border border-brand-border hover:border-gray-500 transition text-sm">
+                                        <span class="text-gray-300"><i class="fa-brands fa-youtube text-red-500 w-5"></i> NetworkChuck (Playlist)</span>
+                                        <i class="fa-solid fa-external-link text-gray-600 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Course 4 -->
+                        <div class="group bg-brand-panel rounded-2xl border border-brand-border overflow-hidden hover:border-red-500 transition-colors flex flex-col">
+                            <div class="p-6 relative flex-grow">
+                                <div class="w-12 h-12 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 text-xl mb-4"><i class="fa-solid fa-shield-virus"></i></div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <h3 class="text-lg font-bold text-white">Cibersegurança (Base)</h3>
+                                </div>
+                                <p class="text-xs text-gray-400 mb-6 leading-relaxed">A Tríade CIA, tipos de criptografia simétrica/assimétrica, funções de Hash (SHA-256) e vetores de ataque em LAN (MitM).</p>
+                                <div class="space-y-2 mt-auto">
+                                    <a href="https://academy.hackthebox.com/module/details/172" target="_blank" class="flex items-center justify-between p-2 rounded bg-brand-dark border border-brand-border hover:border-gray-500 transition text-sm">
+                                        <span class="text-gray-300"><i class="fa-solid fa-cube text-green-500 w-5"></i> HackTheBox (Intro to Net)</span>
+                                        <i class="fa-solid fa-external-link text-gray-600 text-xs"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Books Section -->
+                    <h3 class="text-xl font-bold text-white mb-4">Livros e Referências Técnicas</h3>
+                    <div class="overflow-x-auto bg-brand-panel rounded-xl border border-brand-border mb-8">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Título / Autor</th>
+                                    <th>Foco Principal</th>
+                                    <th>Nível</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Programming the ESP32 (Neil Kolban)</td>
+                                    <td>Referência técnica absoluta. PDF Grátis.</td>
+                                    <td><span class="bg-blue-500/10 text-blue-400 text-[10px] px-2 py-1 rounded font-bold uppercase border border-blue-500/20">Intermediário</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Make: Electronics (Charles Platt)</td>
+                                    <td>Melhor livro de eletrônica para programadores.</td>
+                                    <td><span class="bg-brand-cyan/10 text-brand-cyan text-[10px] px-2 py-1 rounded font-bold uppercase border border-brand-cyan/20">Iniciante</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Real-Time Concepts for Embedded Systems</td>
+                                    <td>Estudar FreeRTOS a fundo (Opcional).</td>
+                                    <td><span class="bg-brand-amber/10 text-brand-amber text-[10px] px-2 py-1 rounded font-bold uppercase border border-brand-amber/20">Avançado</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">Hardware ESP32 (Guia de Compras)</p>
+                        </div>
+                        <button onclick="navModule('hardware')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 3 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODULE 3: Hardware -->
+            <section id="hardware" class="module-content">
+                <div class="fade-in">
+                    <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 03 · HARDWARE & COMPRAS</span>
+                        <h2 class="text-3xl font-extrabold text-white">Qual ESP32 Comprar?</h2>
+                        <p class="text-gray-400 mt-2">Evite semanas de debug comprando o chip errado ou economizando onde não deve.</p>
+                    </div>
+                    
+                    <div class="grid lg:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-brand-panel border-2 border-emerald-500/50 rounded-2xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 bg-emerald-500 text-brand-dark text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Recomendado</div>
+                            <h3 class="text-xl font-bold text-white mb-1 mt-2">ESP32 DevKitC</h3>
+                            <p class="text-xs text-brand-cyan font-mono mb-4">Chip WROOM-32 (LX6)</p>
+                            <p class="text-sm text-gray-400">A escolha ideal para 90% dos TCCs. Tem o maior suporte comunitário, suporta TLS pesado sem travar e possui Wi-Fi/BT 4.2 nativos.</p>
+                        </div>
+                        <div class="bg-brand-panel border border-brand-border rounded-2xl p-6 relative">
+                            <h3 class="text-xl font-bold text-white mb-1">ESP32-S3</h3>
+                            <p class="text-xs text-brand-purple font-mono mb-4">Chip LX7 com Vetores</p>
+                            <p class="text-sm text-gray-400">Mais poderoso. Excelente se o seu TCC envolver Machine Learning (TinyML) na borda ou necessitar de USB Nativo.</p>
+                        </div>
+                        <div class="bg-brand-panel border border-red-500/30 rounded-2xl p-6 relative opacity-80">
+                            <h3 class="text-xl font-bold text-white mb-1">ESP32-C3</h3>
+                            <p class="text-xs text-gray-500 font-mono mb-4">Chip RISC-V (Single Core)</p>
+                            <p class="text-sm text-gray-400">Muito barato, substituto do ESP8266. Evite para projetos de segurança, pois o single-core sofre com Handshake MQTTS pesado.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Lists -->
+                    <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                        <div>
+                            <h3 class="text-lg font-bold text-white mb-4 border-b border-brand-border pb-2">Kit Essencial (Compre Primeiro)</h3>
+                            <ul class="space-y-3">
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-cyan mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200">2x ESP32 NodeMCU:</strong> <span class="text-xs text-gray-500 block">Compre dois. Um para enviar dados, outro para interceptar (ou caso frite o primeiro).</span></div>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-cyan mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200">Protoboard (830 furos) + Jumpers:</strong> <span class="text-xs text-gray-500 block">Kits de cabos M-M e M-F.</span></div>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-brand-cyan mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200">Sensor BME280:</strong> <span class="text-xs text-gray-500 block">Temperatura/Pressão via I2C. Precisão industrial. Evite o DHT11 (muito impreciso).</span></div>
+                                </li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-brand-amber mb-4 border-b border-brand-border pb-2">O Segredo do Hardware</h3>
+                            <div class="bg-brand-panel p-4 border border-brand-border rounded-xl flex items-start gap-4">
+                                <i class="fa-solid fa-wave-square text-3xl text-brand-amber mt-2"></i>
+                                <div>
+                                    <strong class="text-white block mb-1">Analisador Lógico 24MHz 8Ch</strong>
+                                    <p class="text-xs text-gray-400">Custa ~R$40 no Mercado Livre (Clone Saleae). Ele permite ver visualmente na tela do PC se o dado elétrico está saindo do pino (usando o software grátis PulseView). Vai te salvar semanas de debug cego.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Where to buy -->
+                    <div class="callout callout-emerald">
+                        <i class="fa-solid fa-cart-shopping text-emerald-500 text-xl"></i>
+                        <div class="callout-body w-full">
+                            <strong class="text-white block mb-2">Onde comprar no Brasil com segurança?</strong>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2">
+                                <div class="bg-brand-dark p-3 rounded border border-brand-border">
+                                    <strong class="text-emerald-400 block mb-1">FilipeFlop / MakerHero</strong>
+                                    <span class="text-gray-500">Qualidade garantida e envio rápido. Ótima para sensores oficiais.</span>
+                                </div>
+                                <div class="bg-brand-dark p-3 rounded border border-brand-border">
+                                    <strong class="text-emerald-400 block mb-1">RoboCore</strong>
+                                    <span class="text-gray-500">Curadoria excelente, foco em robótica e IoT de qualidade.</span>
+                                </div>
+                                <div class="bg-brand-dark p-3 rounded border border-brand-border">
+                                    <strong class="text-emerald-400 block mb-1">Mercado Livre (Full)</strong>
+                                    <span class="text-gray-500">Filtre por envios Full. Atenção a placas suspeitas muito baratas.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">Setup Profissional (IDEs e Git)</p>
+                        </div>
+                        <button onclick="navModule('ambiente')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 4 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+             <!-- MODULE 4: Ambiente -->
+             <section id="ambiente" class="module-content">
+                <div class="fade-in">
+                    <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 04 · AMBIENTE DE DESENVOLVIMENTO</span>
+                        <h2 class="text-3xl font-extrabold text-white">Abandonando o Amadorismo</h2>
+                        <p class="text-gray-400 mt-2">Como configurar VS Code, PlatformIO e Git no Linux Manjaro.</p>
+                    </div>
+
+                    <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                        <!-- Arduino IDE vs VS Code -->
+                        <div class="bg-brand-panel border border-brand-border rounded-2xl p-6 lg:p-8">
+                            <h3 class="text-lg font-bold text-white mb-4 border-b border-brand-border pb-2"><i class="fa-solid fa-code-compare text-brand-cyan mr-2"></i> Por que o VS Code + PlatformIO?</h3>
+                            <p class="text-sm text-gray-400 mb-6 leading-relaxed">
+                                A IDE do Arduino é excelente para testes de 5 minutos, mas para um projeto de 18 meses com dezenas de bibliotecas e integração de arquivos, o <strong>PlatformIO</strong> muda as regras do jogo.
+                            </p>
+                            <ul class="space-y-3">
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-emerald-500 mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200 text-sm">Gestão via platformio.ini:</strong> <p class="text-xs text-gray-500">Baixa bibliotecas automaticamente. Sem conflitos de versões de PC para PC.</p></div>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-emerald-500 mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200 text-sm">IntelliSense C++ Real:</strong> <p class="text-xs text-gray-500">Auto-complete poderoso que entende o hardware do ESP32.</p></div>
+                                </li>
+                                <li class="flex items-start">
+                                    <i class="fa-solid fa-check text-emerald-500 mt-1 mr-3"></i>
+                                    <div><strong class="text-gray-200 text-sm">Controle de Versão:</strong> <p class="text-xs text-gray-500">O Git funciona dentro da própria janela da IDE perfeitamente.</p></div>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Terminal Setup -->
+                        <div class="bg-[#1E1E1E] rounded-xl overflow-hidden border border-[#333333] font-mono text-sm shadow-2xl flex flex-col h-full">
+                            <div class="bg-[#2D2D2D] px-4 py-3 flex items-center space-x-2 border-b border-[#1E1E1E]">
+                                <div class="w-3 h-3 rounded-full bg-[#FF5F56]"></div>
+                                <div class="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
+                                <div class="w-3 h-3 rounded-full bg-[#27C93F]"></div>
+                                <span class="text-[#8F908A] text-[10px] ml-4 font-bold tracking-widest uppercase">bash — setup manjaro linux</span>
+                            </div>
+                            <div class="p-6 text-gray-300 space-y-4 flex-1 overflow-y-auto text-xs leading-relaxed">
+                                <div class="opacity-50"># 1. Permissões de Serial (Crucial no Linux)</div>
+                                <div><span class="text-green-400">user@manjaro</span>:<span class="text-blue-400">~</span>$ sudo usermod -a -G uucp $USER</div>
+                                <div><span class="text-green-400">user@manjaro</span>:<span class="text-blue-400">~</span>$ sudo usermod -a -G dialout $USER</div>
+                                <div class="text-brand-amber"># REINICIE O SISTEMA AGORA</div>
+                                <br>
+                                <div class="opacity-50"># 2. Instalar VS Code (AUR)</div>
+                                <div><span class="text-green-400">user@manjaro</span>:<span class="text-blue-400">~</span>$ yay -S visual-studio-code-bin</div>
+                                <br>
+                                <div class="opacity-50"># 3. No VS Code, instale a extensão PlatformIO IDE.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="callout callout-cyan mb-8">
+                        <i class="fa-solid fa-code-branch text-brand-cyan text-xl"></i>
+                        <div class="callout-body w-full">
+                            <strong class="text-white block mb-2">Git — Obrigatório desde o Dia 1</strong>
+                            <p class="text-gray-400 text-sm mb-3">"Estava funcionando ontem, mudei uma linha e quebrou tudo". Aprenda Git. Crie um repositório privado no GitHub hoje.</p>
+                            <div class="bg-brand-dark p-3 rounded border border-brand-border font-mono text-xs text-gray-300 grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-brand-purple">git init</span><br>
+                                    <span class="text-brand-purple">git add .</span><br>
+                                    <span class="text-brand-purple">git commit -m "add bme280 i2c"</span>
+                                </div>
+                                <div>
+                                    <span class="text-brand-purple">git push origin main</span><br>
+                                    <span class="text-brand-purple">git checkout -b feature/wifi</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">Projetos Práticos (A Escada)</p>
+                        </div>
+                        <button onclick="navModule('pratica')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 5 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+             <!-- MODULE 5: Pratica -->
+             <section id="pratica" class="module-content">
+                <div class="fade-in">
+                     <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 05 · A ESCADA PRÁTICA</span>
+                        <h2 class="text-3xl font-extrabold text-white">Mini-Projetos Progressivos</h2>
+                        <p class="text-gray-400 mt-2">Não copie e cole. Leia linha por linha. Quebre o código, conserte o código.</p>
+                    </div>
+                    
+                    <div class="space-y-6 mb-8">
+                        <!-- Step 1 -->
+                        <div class="bg-brand-panel border border-brand-border hover:border-brand-cyan/50 transition-colors rounded-2xl p-6 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-cyan shadow-[0_0_10px_#00F0FF]"></div>
+                            <div class="md:w-1/4 flex flex-col justify-center items-center p-4 border-r border-brand-border/50">
+                                <span class="text-4xl font-black text-brand-cyan/20">01</span>
+                                <span class="mt-2 text-[10px] font-bold uppercase text-brand-cyan tracking-widest text-center">Hello World</span>
+                            </div>
+                            <div class="md:w-3/4">
+                                <h3 class="text-lg font-bold text-white mb-2">Blink & Monitor Serial sem Delay</h3>
+                                <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+                                    Valide a toolchain. Entenda por que <code>delay()</code> é proibido em sistemas reais e aprenda a usar <code>millis()</code> como uma máquina de estados simples.
+                                </p>
+                                <div class="flex gap-2">
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">GPIO</span>
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">millis()</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2 -->
+                        <div class="bg-brand-panel border border-brand-border hover:border-blue-500/50 transition-colors rounded-2xl p-6 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 shadow-[0_0_10px_#3B82F6]"></div>
+                            <div class="md:w-1/4 flex flex-col justify-center items-center p-4 border-r border-brand-border/50">
+                                <span class="text-4xl font-black text-blue-500/20">02</span>
+                                <span class="mt-2 text-[10px] font-bold uppercase text-blue-500 tracking-widest text-center">Protocolos Base</span>
+                            </div>
+                            <div class="md:w-3/4">
+                                <h3 class="text-lg font-bold text-white mb-2">Sensores I²C (BME280) e Wi-Fi Resiliente</h3>
+                                <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+                                    Leia a temperatura via barramento I2C. Configure a conexão Wi-Fi do ESP32 criando uma lógica de reconexão automática caso o roteador caia.
+                                </p>
+                                <div class="flex gap-2">
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">Wire.h</span>
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">WiFi.h</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="bg-brand-panel border border-brand-border hover:border-brand-purple/50 transition-colors rounded-2xl p-6 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-purple shadow-[0_0_10px_#8A2BE2]"></div>
+                            <div class="md:w-1/4 flex flex-col justify-center items-center p-4 border-r border-brand-border/50">
+                                <span class="text-4xl font-black text-brand-purple/20">03</span>
+                                <span class="mt-2 text-[10px] font-bold uppercase text-brand-purple tracking-widest text-center">Alvo TCC</span>
+                            </div>
+                            <div class="md:w-3/4">
+                                <h3 class="text-lg font-bold text-white mb-2">Pub/Sub MQTT em Texto Claro (Porta 1883)</h3>
+                                <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+                                    Seu "Baseline Inseguro". Envie dados em JSON via <code>PubSubClient</code>. Capture os pacotes na sua rede com o Wireshark rodando no Manjaro para provar a vulnerabilidade.
+                                </p>
+                                <div class="flex gap-2">
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">MQTT</span>
+                                    <span class="bg-brand-dark text-gray-400 text-[10px] px-2 py-1 rounded border border-brand-border font-mono">ArduinoJson</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="bg-brand-panel border border-brand-border hover:border-emerald-500/50 transition-colors rounded-2xl p-6 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 shadow-[0_0_10px_#10B981]"></div>
+                            <div class="md:w-1/4 flex flex-col justify-center items-center p-4 border-r border-brand-border/50">
+                                <span class="text-4xl font-black text-emerald-500/20">04</span>
+                                <span class="mt-2 text-[10px] font-bold uppercase text-emerald-500 tracking-widest text-center">Defesa</span>
+                            </div>
+                            <div class="md:w-3/4">
+                                <h3 class="text-lg font-bold text-white mb-2">Handshake MQTTS (WiFiClientSecure)</h3>
+                                <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+                                    Ataque remediado. Embarque o Root CA no código. Entenda o impacto na memória RAM do ESP32 gerado pelo processamento criptográfico TLS 1.3.
+                                </p>
+                                <div class="bg-brand-dark p-2 rounded border border-brand-border text-xs font-mono text-gray-400 mt-2 inline-block">
+                                    espClient.<span class="text-brand-cyan">setCACert</span>(root_ca);
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">Docs & Gestão de Projeto</p>
+                        </div>
+                        <button onclick="navModule('gestao')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 6 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+             </section>
+
+             <!-- MODULE 6: Documentação e Gestão -->
+             <section id="gestao" class="module-content">
+                <div class="fade-in">
+                     <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 06 · DOCUMENTAÇÃO & GESTÃO DE PROJETO</span>
+                        <h2 class="text-3xl font-extrabold text-white">Engenharia Exige Escrita</h2>
+                        <p class="text-gray-400 mt-2">Um projeto brilhante mal documentado resulta em nota medíocre. Blinde seu tempo com processos claros.</p>
+                    </div>
+                    
+                    <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                        <!-- O Diário e Gestão -->
+                        <div class="bg-brand-panel border border-brand-border rounded-2xl p-6 lg:p-8">
+                            <h3 class="text-xl font-bold text-white mb-4 border-b border-brand-border pb-2"><i class="fa-solid fa-book-journal-whills text-brand-purple mr-2"></i> Diário (Obsidian) e Kanban</h3>
+                            <p class="text-sm text-gray-400 mb-4 leading-relaxed">
+                                Daqui a 8 meses, você não vai lembrar por que resolveu trocar um pino ou como corrigiu um erro do Wireshark. Use o <strong>Obsidian</strong> (Markdown offline) para criar sua base de conhecimento ligada.
+                            </p>
+                            <div class="bg-brand-dark p-4 rounded-xl border border-brand-border/50 text-xs font-mono text-gray-300 mb-4">
+                                <div class="text-brand-purple"># Log: 15/10/2024</div>
+                                <div>- <strong class="text-gray-100">Meta:</strong> TLS no PubSubClient (Porta 8883)</div>
+                                <div>- <strong class="text-red-400">Erro:</strong> MbedTLS -0x2700 (X509 verify fail)</div>
+                                <div>- <strong class="text-emerald-400">Fix:</strong> String C++ exige \n no final de cada linha da chave. Link stackoverflow.com/...</div>
+                            </div>
+                            <p class="text-xs text-gray-500">Para controle de tempo e tarefas, tenha um <strong>Trello/Notion</strong> simples: Backlog → Em Progresso → Concluído. Reserve 1 hora no dia 1º de cada mês para organizar o Kanban.</p>
+                        </div>
+
+                        <!-- Protocolo Debugging & Ferramentas -->
+                        <div class="bg-brand-panel border border-brand-border rounded-2xl p-6 lg:p-8 flex flex-col">
+                            <h3 class="text-xl font-bold text-white mb-4 border-b border-brand-border pb-2"><i class="fa-solid fa-bug text-brand-amber mr-2"></i> Como sair do bloqueio</h3>
+                            <ul class="space-y-4 mb-4 flex-grow text-sm text-gray-300">
+                                <li class="flex items-start"><span class="bg-brand-dark text-gray-500 font-mono text-xs px-2 py-0.5 rounded border border-brand-border mr-3 mt-0.5">01</span><div><strong>Leia o erro inteiro.</strong> O compilador de C++ diz a linha exata. Não tenha medo das letras vermelhas.</div></li>
+                                <li class="flex items-start"><span class="bg-brand-dark text-gray-500 font-mono text-xs px-2 py-0.5 rounded border border-brand-border mr-3 mt-0.5">02</span><div><strong>Isolamento de Variáveis.</strong> Crie um arquivo novo limpo. Teste só a função que está falhando, sem o resto do sistema.</div></li>
+                                <li class="flex items-start"><span class="bg-brand-dark text-gray-500 font-mono text-xs px-2 py-0.5 rounded border border-brand-border mr-3 mt-0.5">03</span><div><strong>A Regra das 2 Horas.</strong> Travou por 2h seguidas? Vá dormir ou caminhar. O modo difuso do cérebro resolve o bug no banho.</div></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- LaTeX e TCC -->
+                    <div class="bg-brand-dark/50 border border-brand-border rounded-2xl p-6 lg:p-8 mb-8">
+                        <div class="flex items-center gap-4 mb-6">
+                            <i class="fa-solid fa-file-pdf text-3xl text-red-500"></i>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">LaTeX (Overleaf) vs Word</h3>
+                                <p class="text-xs text-gray-400">Pule a frustração da formatação ABNT manual.</p>
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-3 gap-6 text-sm text-gray-300">
+                            <div>
+                                <strong class="text-brand-cyan block mb-1">Citações (BibTeX)</strong>
+                                Copie o código BibTeX do Google Scholar e o LaTeX constrói sua bibliografia ABNT e ordena tudo automaticamente. Ferramenta útil: <strong>Zotero</strong>.
+                            </div>
+                            <div>
+                                <strong class="text-brand-cyan block mb-1">Código Limpo</strong>
+                                Use o pacote <code>listings</code>. O código fonte (C++, Python) sai formatado como na IDE dentro do PDF, sem quebrar layout.
+                            </div>
+                            <div>
+                                <strong class="text-brand-cyan block mb-1">A Estrutura</strong>
+                                1. Intro. 2. Ref. Teórico (MQTT, CIA, IEC62443). 3. Metodologia. 4. Dev (O Ataque). 5. Resultados (O TLS e os Gráficos). 6. Conclusão.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 p-6 bg-brand-panel border border-brand-border rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 hover:border-brand-cyan/30 transition-colors">
+                        <div>
+                            <h4 class="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">Próximo Módulo</h4>
+                            <p class="text-lg font-bold text-white">A Biblioteca de Recursos</p>
+                        </div>
+                        <button onclick="navModule('recursos')" class="bg-brand-cyan text-brand-dark px-6 py-2 rounded-lg font-bold hover:bg-cyan-300 transition-colors flex items-center w-full md:w-auto justify-center">
+                            Ir para Módulo 7 <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+             </section>
+
+             <!-- MODULE 7: Recursos -->
+             <section id="recursos" class="module-content">
+                <div class="fade-in">
+                    <div class="mb-8 border-b border-brand-border pb-6">
+                        <span class="text-brand-cyan font-mono text-xs uppercase tracking-widest block mb-2">// 07 · RECURSOS & BIBLIOTECA</span>
+                        <h2 class="text-3xl font-extrabold text-white">Sua Base de Conhecimento</h2>
+                        <p class="text-gray-400 mt-2">Os melhores links, canais e fóruns para consultar durante o TCC. Salve nos Favoritos.</p>
+                    </div>
+
+                    <div class="grid lg:grid-cols-2 gap-8">
+                        <!-- Canais do YouTube -->
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-4 flex items-center"><i class="fa-brands fa-youtube text-red-500 mr-2"></i> YouTube (Hardware/IoT)</h3>
+                            <ul class="space-y-3">
+                                <li>
+                                    <a href="https://randomnerdtutorials.com" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-red-500/50 transition">
+                                        <div class="flex justify-between items-start">
+                                            <strong class="text-gray-200">Random Nerd Tutorials</strong>
+                                            <span class="text-[10px] font-mono text-brand-cyan border border-brand-cyan/20 bg-brand-cyan/10 px-1 rounded">ESSENCIAL</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">O site e canal de maior referência mundial para projetos de ESP32.</p>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://www.youtube.com/@digikey" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-red-500/50 transition">
+                                        <strong class="text-gray-200">Digi-Key Electronics</strong>
+                                        <p class="text-xs text-gray-500 mt-1">Curso avançado de Introdução ao FreeRTOS no ESP32.</p>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://www.youtube.com/@AndreasSpiess" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-red-500/50 transition">
+                                        <strong class="text-gray-200">Andreas Spiess</strong>
+                                        <p class="text-xs text-gray-500 mt-1">Análises detalhadas de módulos IoT, consumo de bateria e LoRa.</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Fóruns e Docs -->
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-4 flex items-center"><i class="fa-brands fa-github text-gray-400 mr-2"></i> Repositórios & Fóruns</h3>
+                            <ul class="space-y-3">
+                                <li>
+                                    <a href="https://github.com/espressif/arduino-esp32" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-gray-400 transition">
+                                        <div class="flex justify-between items-start">
+                                            <strong class="text-gray-200">espressif/arduino-esp32</strong>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">O código-fonte oficial. Olhe a pasta "libraries" e "examples".</p>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://www.reddit.com/r/esp32/" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-orange-500/50 transition">
+                                        <strong class="text-gray-200">Reddit r/esp32</strong>
+                                        <p class="text-xs text-gray-500 mt-1">Ótimo lugar para perguntar: "Por que esse trecho MQTTS trava?"</p>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://github.com/knolleary/pubsubclient" target="_blank" class="block bg-brand-panel border border-brand-border p-4 rounded-xl hover:border-gray-400 transition">
+                                        <strong class="text-gray-200">PubSubClient (knolleary)</strong>
+                                        <p class="text-xs text-gray-500 mt-1">A biblioteca padrão de MQTT. Fundamental ler os issues abertos.</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Busca Científica -->
+                    <div class="mt-8 bg-brand-dark/50 border border-brand-border rounded-2xl p-6 lg:p-8 text-center">
+                        <h3 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-microscope text-brand-purple mr-2"></i> Pesquisa Bibliográfica</h3>
+                        <p class="text-sm text-gray-400 mb-6">Para encontrar os artigos do seu Capítulo 2 (Trabalhos Correlatos), pesquise em inglês com operadores booleanos em:</p>
+                        <div class="flex flex-wrap justify-center gap-4">
+                            <a href="https://scholar.google.com/" target="_blank" class="px-4 py-2 border border-brand-border bg-brand-panel rounded text-gray-300 hover:text-white hover:border-brand-cyan transition text-sm">Google Scholar</a>
+                            <a href="https://ieeexplore.ieee.org/" target="_blank" class="px-4 py-2 border border-brand-border bg-brand-panel rounded text-gray-300 hover:text-white hover:border-brand-cyan transition text-sm">IEEE Xplore</a>
+                            <a href="https://www.periodicos.capes.gov.br/" target="_blank" class="px-4 py-2 border border-brand-border bg-brand-panel rounded text-gray-300 hover:text-white hover:border-brand-cyan transition text-sm">Portal CAPES</a>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 flex justify-center">
+                        <button onclick="navModule('dashboard')" class="bg-gradient-to-r from-brand-cyan to-blue-600 text-brand-dark px-10 py-4 rounded-xl font-black shadow-neon hover:shadow-[0_0_30px_rgba(0,240,255,0.6)] transition-all flex items-center transform hover:-translate-y-1">
+                            <i class="fa-solid fa-flag-checkered mr-3 text-xl"></i>
+                            Voltar ao Dashboard Inicial
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        // Reading Progress Logic
+        const mainScroll = document.getElementById('main-scroll');
+        const progressBar = document.getElementById('reading-progress');
+        
+        mainScroll.addEventListener('scroll', () => {
+            const scrollTop = mainScroll.scrollTop;
+            const scrollHeight = mainScroll.scrollHeight - mainScroll.clientHeight;
+            const scrollPercentage = (scrollTop / scrollHeight) * 100;
+            progressBar.style.width = scrollPercentage + '%';
+        });
+
+        // Module Navigation Logic
+        function navModule(moduleId) {
+            // Hide all modules
+            document.querySelectorAll('.module-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Show target module
+            const target = document.getElementById(moduleId);
+            if(target) {
+                target.classList.add('active');
+                mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
+                // Reset progress bar on module change
+                progressBar.style.width = '0%';
+            }
+
+            // Update Sidebar UI
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active', 'border-l-[3px]', 'border-brand-cyan');
+                el.classList.add('border-l-[3px]', 'border-transparent');
+                
+                const icon = el.querySelector('i');
+                icon.classList.remove('text-brand-cyan');
+                icon.classList.add('text-gray-500');
+            });
+
+            // Find clicked button and style it
+            const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.getAttribute('onclick') === `navModule('${moduleId}')`);
+            if(activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.classList.remove('border-transparent');
+                const activeIcon = activeBtn.querySelector('i');
+                activeIcon.classList.remove('text-gray-500');
+                activeIcon.classList.add('text-brand-cyan');
+            }
+
+            // Mobile menu handling
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if(!sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Mobile Toggle Logic
+        document.getElementById('mobile-toggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('overlay').classList.toggle('hidden');
+        });
+
+        document.getElementById('overlay').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('overlay').classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
